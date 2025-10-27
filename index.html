@@ -1,8 +1,384 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>My Web Page</title>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Climate Chaos — Lite</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#07102a; --bg2:#0b1b2f;
+    --card: rgba(255,255,255,0.03);
+    --accent:#6fe7b6; --danger:#ff6b6b; --accent2:#7ee7ff;
+    --glass: rgba(255,255,255,0.04);
+    --soft: rgba(255,255,255,0.06);
+  }
+  *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#e6f0ff}
+  .center{min-height:100vh;display:grid;place-items:center;padding:28px}
+  .game {
+    width:100%;max-width:720px;border-radius:16px;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    box-shadow:0 18px 60px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.02);
+  }
+  .top {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#3ee7c3,#6fb7ff);display:grid;place-items:center;font-weight:800;color:#052;transform:rotate(-8deg)}
+  h1{margin:0;font-size:18px}
+  .sub{color:#9fb3d9;font-size:13px}
+  .board {display:grid;grid-template-columns:1fr 240px;gap:12px}
+  @media (max-width:760px){ .board{grid-template-columns:1fr} }
+
+  /* Left: Game card */
+  .card {background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between}
+  .scene {text-align:center;padding:6px 8px}
+  .scene-emoji{font-size:48px;display:block;margin-bottom:6px}
+  .scene-text{font-weight:700;font-size:16px;margin-bottom:6px}
+  .scene-sub{color:#cfe6ff;font-size:13px}
+
+  .choices{display:flex;gap:12px;margin-top:12px}
+  .choice{flex:1;padding:14px;border-radius:12px;border:none;font-weight:800;cursor:pointer;font-size:15px;box-shadow:0 8px 20px rgba(2,6,23,0.6)}
+  .choice-left{background:linear-gradient(90deg,#1cd38a,#6fe7b6);color:#042}
+  .choice-right{background:linear-gradient(90deg,#ff8a6b,#ff6b6b);color:#2b0000}
+
+  /* Right: HUD */
+  .hud {display:flex;flex-direction:column;gap:12px}
+  .meters {background:var(--glass);padding:12px;border-radius:12px}
+  .meter-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .meter-label{min-width:92px;font-weight:700}
+  .meter-track{flex:1;height:14px;background:rgba(255,255,255,0.03);border-radius:10px;overflow:hidden;position:relative}
+  .meter-fill{height:100%;width:50%;transition:width 600ms cubic-bezier(.2,.9,.3,1)}
+  .meter-temp .meter-fill{background:linear-gradient(90deg,#ffb86b,#ff6b6b)}
+  .meter-health .meter-fill{background:linear-gradient(90deg,#74f59a,#2bb673)}
+
+  .mini-log{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));padding:10px;border-radius:10px;height:120px;overflow:auto;color:#bfe;font-size:13px}
+
+  .footer {display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:#9fb3d9;font-size:13px}
+  .btn-small{padding:8px 10px;border-radius:10px;border:none;background:transparent;color:#cfe;font-weight:700;cursor:pointer}
+  .big-center{display:flex;justify-content:center;margin-top:8px}
+
+  /* animations */
+  .pop {animation:pop .36s cubic-bezier(.2,.9,.3,1)}
+  @keyframes pop{0%{transform:scale(.98)}50%{transform:scale(1.03)}100%{transform:scale(1)}}
+
+  /* end modal */
+  .overlay{position:fixed;inset:0;display:none;place-items:center;background:linear-gradient(rgba(2,6,23,0.6),rgba(2,6,23,0.6));z-index:60}
+  .modal{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:12px;max-width:520px;width:92%;text-align:center}
+  .title-large{font-size:20px;margin-bottom:6px}
+  .muted{color:#9fb3d9}
+</style>
+</head>
+<body>
+  <div class="center">
+    <div class="game" id="gameRoot">
+      <div class="top">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="logo">CC</div>
+          <div>
+            <h1>Climate Chaos — Lite</h1>
+            <div class="sub">Playable • Fast • Athena-friendly</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-small" id="infoBtn">How to</button>
+          <button class="btn-small" id="restartBtn">Restart</button>
+        </div>
+      </div>
+
+      <div class="board">
+        <!-- Left: Scene -->
+        <div>
+          <div class="card" id="sceneCard">
+            <div class="scene" id="sceneArea">
+              <div class="scene-emoji" id="sceneEmoji">🌤️</div>
+              <div class="scene-text" id="sceneText">Welcome, leader — quick choices matter.</div>
+              <div class="scene-sub" id="sceneSub">Tap a choice to affect the planet.</div>
+            </div>
+
+            <div class="big-center">
+              <div style="width:100%">
+                <div class="choices" id="choicesRow">
+                  <button class="choice choice-left" id="leftBtn">Do Good 🌳</button>
+                  <button class="choice choice-right" id="rightBtn">Do Money 💸</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:center;margin-top:8px">
+              <div id="turnCounter" class="muted">Turn 0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: HUD -->
+        <div class="hud">
+          <div class="meters panel" style="background:var(--glass);padding:12px;border-radius:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="font-weight:800">Planet Status</div>
+              <div class="muted" id="shortHint">Quick, fun, and visual!</div>
+            </div>
+
+            <div class="meter-row">
+              <div class="meter-label">🔥 Temp</div>
+              <div class="meter-track meter-temp"><div id="tempFill" class="meter-fill" style="width:30%"></div></div>
+              <div style="width:38px;text-align:right;font-weight:700" id="tempVal">30</div>
+            </div>
+
+            <div class="meter-row">
+              <div class="meter-label">💚 Health</div>
+              <div class="meter-track meter-health"><div id="healthFill" class="meter-fill" style="width:70%"></div></div>
+              <div style="width:38px;text-align:right;font-weight:700" id="healthVal">70</div>
+            </div>
+          </div>
+
+          <div class="mini-log" id="smallLog">Events will appear here — short & juicy.</div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-small" id="autoBtn">Auto Play</button>
+            <div style="flex:1"></div>
+            <div class="muted">Made for ATHENA</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="muted">Tip: fast taps = chaotic fun</div>
+        <div class="muted" id="scoreBadge">Score: 0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- END MODAL -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="title-large" id="endTitle">Result</div>
+      <div id="endMsg" style="margin-bottom:12px" class="muted">Summary here</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <button class="choice choice-left" id="replay">Play Again</button>
+        <button class="choice choice-right" id="exit">Close</button>
+      </div>
+      <div style="margin-top:10px" id="finalStats" class="muted"></div>
+    </div>
+  </div>
+
+<script>
+/* Climate Chaos — Lite
+   - Single-file game
+   - Two stats: temp (bad high) and health (good high)
+   - Short events, big buttons, quick animations
+   - No heavy reading; low overwhelm
+*/
+
+// ---------- Config ----------
+const MAX_TURNS = 8;              // quick game
+let state = { turn:0, temp:30, health:70, score:0 };
+const scenes = [
+  {emoji:"🔥", text:"Heatwave in the south!", left:{label:"Plant trees 🌳", effect:{temp:-4,health:+6,score:+8}}, right:{label:"Sell ACs 💸", effect:{temp:+2,health:-3,score:+6}}},
+  {emoji:"🏭", text:"Factory boom—jobs spike.", left:{label:"Green grants 🌱", effect:{temp:-3,health:+4,score:+7}}, right:{label:"Cut regs 🧾", effect:{temp:+4,health:-5,score:+9}}},
+  {emoji:"🛰️", text:"Space tourism hype.", left:{label:"Limit launches 🚫", effect:{temp:-2,health:+3,score:+5}}, right:{label:"Charge fees 💰", effect:{temp:+3,health:-2,score:+6}}},
+  {emoji:"🌊", text:"Coastal flooding!", left:{label:"Wetland restore 🐦", effect:{temp:-2,health:+5,score:+7}}, right:{label:"Dike walls 🧱", effect:{temp:+1,health:-1,score:+4}}},
+  {emoji:"🔋", text:"New battery tech!", left:{label:"Fund labs 🔬", effect:{temp:-3,health:+2,score:+8}}, right:{label:"Export tech 🌍", effect:{temp:-1,health:+1,score:+5}}},
+  {emoji:"🚗", text:"Car sales surge.", left:{label:"Subsidize EVs ⚡", effect:{temp:-2,health:+3,score:+6}}, right:{label:"Gas incentives ⛽", effect:{temp:+3,health:-4,score:+6}}},
+  {emoji:"🏙️", text:"City wants growth.", left:{label:"Eco-building 🧱", effect:{temp:-1,health:+3,score:+5}}, right:{label:"Tax cuts 💵", effect:{temp:+2,health:-2,score:+6}}},
+  {emoji:"🌪️", text:"Storm season intensifies.", left:{label:"Early warning 🔔", effect:{temp:0,health:+4,score:+4}}, right:{label:"Ignore ⚠️", effect:{temp:+2,health:-6,score:+1}}}
+];
+// shuffle utility
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+// DOM refs
+const sceneEmoji = document.getElementById('sceneEmoji');
+const sceneText = document.getElementById('sceneText');
+const sceneSub = document.getElementById('sceneSub');
+const leftBtn = document.getElementById('leftBtn');
+const rightBtn = document.getElementById('rightBtn');
+const tempFill = document.getElementById('tempFill');
+const healthFill = document.getElementById('healthFill');
+const tempVal = document.getElementById('tempVal');
+const healthVal = document.getElementById('healthVal');
+const smallLog = document.getElementById('smallLog');
+const turnCounter = document.getElementById('turnCounter');
+const scoreBadge = document.getElementById('scoreBadge');
+const overlay = document.getElementById('overlay');
+const endTitle = document.getElementById('endTitle');
+const endMsg = document.getElementById('endMsg');
+const finalStats = document.getElementById('finalStats');
+const restartBtn = document.getElementById('restartBtn');
+const infoBtn = document.getElementById('infoBtn');
+const autoBtn = document.getElementById('autoBtn');
+const replayBtn = document.getElementById('replay');
+const exitBtn = document.getElementById('exit');
+const gameRoot = document.getElementById('gameRoot');
+
+// gameplay state
+let deck = [];
+let autoPlaying = false;
+let autoTimer = null;
+
+// helpers
+function clamp(v){ return Math.max(0,Math.min(100, Math.round(v))); }
+function updateUI(){
+  tempFill.style.width = state.temp + '%';
+  healthFill.style.width = state.health + '%';
+  tempVal.textContent = state.temp;
+  healthVal.textContent = state.health;
+  turnCounter.textContent = `Turn ${state.turn}/${MAX_TURNS}`;
+  scoreBadge.textContent = `Score: ${state.score}`;
+}
+function logShort(txt){
+  // keep short list
+  const el = document.createElement('div');
+  el.textContent = txt;
+  smallLog.prepend(el);
+  while(smallLog.children.length>6) smallLog.removeChild(smallLog.lastChild);
+}
+
+// setup new game
+function startGame(){
+  state = {turn:0,temp:30,health:70,score:0};
+  deck = shuffle([...scenes]).slice(0,MAX_TURNS); // random short run
+  overlay.style.display = 'none';
+  nextTurn();
+  updateUI();
+  smallLog.innerHTML = '';
+  logShort('Game started — quick decisions!');
+  document.activeElement.blur();
+  stopAuto();
+}
+
+// turn flow
+function nextTurn(){
+  if(state.turn >= MAX_TURNS || state.health <= 0 || state.temp >= 100){
+    return finishGame();
+  }
+  state.turn++;
+  const scene = deck[state.turn-1];
+  showScene(scene);
+  updateUI();
+}
+
+function showScene(scene){
+  // set UI
+  sceneEmoji.textContent = scene.emoji;
+  sceneText.textContent = scene.text;
+  sceneSub.textContent = `Pick fast — choices affect Temp & Health`;
+  leftBtn.textContent = scene.left.label;
+  rightBtn.textContent = scene.right.label;
+  // attach handlers
+  leftBtn.onclick = ()=> choose(scene.left);
+  rightBtn.onclick = ()=> choose(scene.right);
+  // pop animation
+  gameRoot.classList.add('pop'); setTimeout(()=>gameRoot.classList.remove('pop'),300);
+}
+
+function choose(choice){
+  // animate small feedback
+  applyEffect(choice.effect);
+  logShort(`${choice.label} → ${choice.effect.temp || 0}T ${choice.effect.health || 0}H`);
+  // random tiny event chance
+  if(Math.random() < 0.25){
+    const e = randomTinyEvent();
+    applyEffect(e.effect);
+    logShort(`Event: ${e.text}`);
+  }
+  updateUI();
+  // quick check
+  if(state.health <= 0 || state.temp >= 100){ return finishGame(); }
+  if(state.turn >= MAX_TURNS){ return finishGame(); }
+  // next turn after short delay for sensations
+  setTimeout(()=> nextTurn(), 520);
+}
+
+function applyEffect(e){
+  // default keys
+  state.temp = clamp(state.temp + (e.temp || 0));
+  state.health = clamp(state.health + (e.health || 0));
+  state.score = clamp((state.score || 0) + (e.score || 0));
+  // color flash hint
+  flashBackground(e);
+}
+
+function flashBackground(effect){
+  // small visual cue — shift background tint briefly by temp/health
+  const root = document.documentElement;
+  const t = effect.temp || 0;
+  if(Math.abs(t) >= 3){
+    document.body.style.transition = 'background 280ms';
+    if(t>0) document.body.style.background = 'linear-gradient(180deg,#2a0b0b,#3a1010)';
+    else document.body.style.background = 'linear-gradient(180deg,#072418,#083628)';
+    setTimeout(()=> document.body.style.background = 'linear-gradient(180deg,var(--bg1),var(--bg2))', 280);
+  }
+}
+
+// tiny random events pool
+function randomTinyEvent(){
+  const pool = [
+    {text:"Local volunteers planted trees", effect:{temp:-1,health:+2,score:+2}},
+    {text:"Heatwave caused local outages", effect:{temp:+2,health:-3,score:-1}},
+    {text:"Startup launched climate app", effect:{temp:-1,health:+1,score:+3}},
+    {text:"Wildfire smoke reduces sunlight", effect:{temp:+1,health:-4,score:-2}}
+  ];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function finishGame(){
+  // decide ending
+  let title = '', msg = '';
+  if(state.temp >= 100 || state.health <= 0){
+    title = '🔥 TOTAL MELTDOWN';
+    msg = 'The planet couldn\'t recover. Try different choices — fast and kind wins.';
+  } else if(state.temp <= 35 && state.health >= 60){
+    title = '🌈 ECO HERO';
+    msg = 'You balanced action & wellbeing. The planet smiles.';
+  } else if(state.temp <= 55 && state.health >= 40){
+    title = '🌤️ STABLE';
+    msg = 'Mixed results — not perfect, but surviving.';
+  } else {
+    title = '⚠️ TROUBLED';
+    msg = 'Short-term wins caused long-term pains. Could be better.';
+  }
+  // show modal
+  endTitle.textContent = title;
+  endMsg.textContent = msg;
+  finalStats.innerHTML = `Temp: ${state.temp} • Health: ${state.health} • Score: ${state.score}`;
+  overlay.style.display = 'grid';
+  stopAuto();
+}
+
+// UI buttons
+restartBtn.onclick = startGame;
+infoBtn.onclick = ()=> {
+  alert("How to play:\n• Fast rounds: choose the left/right action.\n• Temp (low is good) and Health (high is good).\n• Try to keep Temp under 100 and Health above 0.\n• Game lasts a few turns — make it dramatic.");
+}
+replayBtn.onclick = ()=>{ overlay.style.display='none'; startGame(); };
+exitBtn.onclick = ()=>{ overlay.style.display='none'; };
+
+// autoplay (for demo)
+autoBtn.onclick = ()=>{
+  if(autoPlaying) stopAuto(); else startAuto();
+};
+function startAuto(){
+  autoPlaying = true; autoBtn.textContent = 'Stop Auto';
+  autoTimer = setInterval(()=>{
+    // pick random button
+    const scene = deck[state.turn-1];
+    if(!scene){ stopAuto(); return; }
+    const pick = Math.random() < 0.52 ? scene.left : scene.right;
+    choose(pick);
+    if(state.turn >= MAX_TURNS || state.health <= 0 || state.temp >= 100) stopAuto();
+  }, 700);
+}
+function stopAuto(){
+  autoPlaying = false; autoBtn.textContent = 'Auto Play';
+  if(autoTimer) clearInterval(autoTimer);
+}
+
+// small keyboard shortcuts for speed (L = left, R = right, space = restart)
+document.addEventListener('keydown',(e)=>{
+  if(e.key.toLowerCase()==='l') leftBtn.click();
+  if(e.key.toLowerCase()==='r') rightBtn.click();
+  if(e.code==='Space') { e.preventDefault(); startGame(); }
+});
+
+// init
+startGame();
+</script>
+</body>
 </html>
